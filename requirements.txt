@@ -1,1 +1,3 @@
-python-dotenv 
+Django
+openai
+python-dotenv
