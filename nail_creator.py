@@ -1,10 +1,9 @@
-import requests
+import base64
+from openai import OpenAI
 
-API_URL = "https://api.sora.com/v1/nail-ideas"
 
-
-def generate_nail_ideas(description: str, feelings: str = "", num_ideas: int = 4):
-    """Call Sora API to generate nail design ideas.
+def generate_nail_image(description: str, feelings: str = "") -> str:
+    """Generate a nail design image using the OpenAI Responses API.
 
     Parameters
     ----------
@@ -12,38 +11,54 @@ def generate_nail_ideas(description: str, feelings: str = "", num_ideas: int = 4
         Basic description including colors or themes.
     feelings : str, optional
         Additional mood or feeling words.
-    num_ideas : int, optional
-        Number of ideas to request from the API (default is 4).
+
+    Returns
+    -------
+    str
+        Base64-encoded image data or ``None`` if no image was returned.
     """
-    payload = {
-        "description": description,
-        "feelings": feelings,
-        "num_ideas": num_ideas,
-    }
-    response = requests.post(API_URL, json=payload)
-    response.raise_for_status()
-    data = response.json()
-    return data.get("ideas", [])
+
+    client = OpenAI()
+
+    prompt = (
+        f"Generate an image of a nail design with the following description: {description}."
+    )
+    if feelings:
+        prompt += f" Include the following feelings or mood: {feelings}."
+
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=prompt,
+        tools=[{"type": "image_generation"}],
+    )
+
+    image_data = [
+        output.result for output in response.output if output.type == "image_generation_call"
+    ]
+    return image_data[0] if image_data else None
 
 
 def main():
     print("Describe how you want your nails (colors, themes, etc.):")
     description = input().strip()
-    print("Optionally add feelings or moods (comma-separated, e.g., 'powerful, cheerful'):")
+    print(
+        "Optionally add feelings or moods (comma-separated, e.g., 'powerful, cheerful'):"
+    )
     feelings = input().strip()
 
     try:
-        ideas = generate_nail_ideas(description, feelings)
-    except requests.RequestException as exc:
-        print("Error contacting Sora API:", exc)
+        image_base64 = generate_nail_image(description, feelings)
+    except Exception as exc:
+        print("Error contacting OpenAI API:", exc)
         return
 
-    if ideas:
-        print("Here are some ideas:")
-        for i, idea in enumerate(ideas, 1):
-            print(f"{i}. {idea}")
+    if image_base64:
+        filename = "nail_design.png"
+        with open(filename, "wb") as f:
+            f.write(base64.b64decode(image_base64))
+        print(f"Image saved as {filename}")
     else:
-        print("No ideas returned by the API.")
+        print("No image returned by the API.")
 
 
 if __name__ == "__main__":
